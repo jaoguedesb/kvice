@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type CSSProperties, useState } from 'react'
 import Trail from './Trail'
 import Player from './Player'
 
@@ -32,6 +32,30 @@ const tracks: Track[] = [
   { id: '05', title: 'Vermelho 909', meta: 'KVICE Edit · 2024' },
   { id: '06', title: 'Hora Azul', meta: 'Live Set Edit · 2023' },
 ]
+
+const bioParagraphs = [
+  'KVICE traduz a noite em movimento: graves densos, linhas hipnoticas e uma selecao que mistura house, techno e energia brasileira sem perder o misterio da pista.',
+  'Nascido no norte e guiado pela intuicao do dancefloor, cria sets com tensao, respiro e explosao, sempre buscando aquele ponto em que o publico para de assistir e comeca a fazer parte do som.',
+  'Cada apresentacao nasce ao vivo, lendo a sala, costurando texturas e abrindo espaco para momentos que parecem pequenos acidentes perfeitos.',
+]
+
+const bioHighlights = [
+  { value: 'Groove', label: 'Assinatura de pista' },
+  { value: 'Norte', label: 'Raiz sonora' },
+  { value: 'Live', label: 'Leitura do publico' },
+  { value: 'Noite', label: 'Energia principal' },
+]
+
+const renderAnimatedText = (text: string) =>
+  text.split('').map((char, index) => (
+    <span
+      className="bio-char"
+      style={{ '--char-index': index } as CSSProperties}
+      key={`${char}-${index}`}
+    >
+      {char === ' ' ? '\u00a0' : char}
+    </span>
+  ))
 
 function App() {
   const [year] = useState(new Date().getFullYear())
@@ -88,13 +112,12 @@ function App() {
             </div>
           </div>
           <h1 className="hero-title">
-            KV<span className="accent">i</span>CE
+            <span className="beat-letter">K</span>
+            <span className="beat-letter">V</span>
+            <span className="beat-letter accent">i</span>
+            <span className="beat-letter">C</span>
+            <span className="beat-letter">E</span>
           </h1>
-        </div>
-
-        <div className="scroll-cue">
-          SCROLL
-          <span className="line"></span>
         </div>
       </section>
 
@@ -130,38 +153,19 @@ function App() {
             </div>
           </div>
           <div className="about-text">
-            <p>
-              <strong>KVICE</strong> é DJ e produtor brasileiro, conhecido pelos sets que
-              transitam entre <em>house</em>, techno e ritmos orgânicos — sempre com
-              identidade própria e energia de pista cheia.
-            </p>
-            <p>
-              Com base em Macapá, levou seu som para festivais e clubes pelo Brasil,
-              construindo uma assinatura sonora que mistura groove tropical com
-              estética eletrônica de raiz.
-            </p>
-            <p>
-              Cada apresentação é uma viagem: começa devagar, escala em camadas, e
-              termina em êxtase coletivo. <strong>É isso que importa.</strong>
-            </p>
+            {bioParagraphs.map((paragraph) => (
+              <p className="bio-line" key={paragraph}>
+                {renderAnimatedText(paragraph)}
+              </p>
+            ))}
 
             <div className="about-stats">
-              <div>
-                <div className="stat-num">120+</div>
-                <div className="stat-label">Shows realizados</div>
-              </div>
-              <div>
-                <div className="stat-num">15</div>
-                <div className="stat-label">Cidades / 3 países</div>
-              </div>
-              <div>
-                <div className="stat-num">22</div>
-                <div className="stat-label">Releases independentes</div>
-              </div>
-              <div>
-                <div className="stat-num">2019</div>
-                <div className="stat-label">Primeiro set público</div>
-              </div>
+              {bioHighlights.map((item) => (
+                <div key={item.value}>
+                  <div className="stat-num">{item.value}</div>
+                  <div className="stat-label">{item.label}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
