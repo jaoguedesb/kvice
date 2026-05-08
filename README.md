@@ -1,56 +1,60 @@
-# KVICE — DJ Site
+# KVICE - DJ Site
 
-Site oficial do DJ KVICE. Construído em **React + TypeScript + Vite**.
+Site oficial do DJ KVICE, construido em React, TypeScript e Vite.
 
-## 🎧 Estética
-
-Brutalist / electronic music poster. Tipografia oversized (Anton + Syne + JetBrains Mono),
-preto profundo com acento ciano elétrico, layouts assimétricos, animações de scroll e hero
-em tela cheia com a foto ao vivo.
-
-## 🚀 Como rodar
+## Como Rodar
 
 ```bash
 npm install
 npm run dev
 ```
 
-Build de produção:
+Build de producao:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-## 📁 Estrutura
+## Deploy Na Vercel
 
-```
+Este repositorio esta pronto para importacao direta na Vercel.
+
+Configuracoes esperadas:
+
+- Framework Preset: `Vite`
+- Install Command: `npm install`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
+O arquivo `vercel.json` ja define essas configuracoes e inclui rewrite para `index.html`, mantendo rotas de SPA funcionando em producao.
+
+## Estrutura
+
+```text
 kvice-site/
-├── public/
-│   └── hero.png          # Foto principal (fundo do hero)
-├── src/
-│   ├── App.tsx           # Componente principal com todas as seções
-│   ├── main.tsx          # Entry point React
-│   └── styles.css        # Toda a estética do site
-├── index.html
-├── package.json
-├── tsconfig.json
-└── vite.config.ts
+|-- public/
+|   |-- dj-loop.mp4
+|   |-- hero-desktop.png
+|   |-- hero-mobile.jpg
+|   |-- track.mp3
+|-- src/
+|   |-- App.tsx
+|   |-- main.tsx
+|   |-- Player.tsx
+|   |-- Trail.tsx
+|   |-- styles.css
+|-- index.html
+|-- package.json
+|-- tsconfig.json
+|-- vercel.json
+|-- vite.config.ts
 ```
 
-## ✏️ Editar conteúdo
+## Editar Conteudo
 
-Os dados de **shows** e **tracks** ficam no topo do `src/App.tsx` como arrays tipados —
-basta editar os arrays para atualizar a tour ou a discografia. Trocar o e-mail de booking
-no JSX da seção `.booking`.
+Os dados de shows e tracks ficam no topo de `src/App.tsx` como arrays tipados. Para atualizar a agenda ou discografia, edite esses arrays.
 
-## 🎨 Trocar cores
+## Trocar Cores
 
-Todas as cores estão em CSS variables no topo de `src/styles.css`:
-
-```css
---ink: #0a0a0a;        /* preto base */
---bone: #f4f1ea;       /* creme/branco */
---acid: #00ffcc;       /* ciano elétrico (acento) */
---hot: #ff2d5f;        /* rosa quente (alerta) */
-```
+As cores principais ficam em CSS variables no topo de `src/styles.css`.
