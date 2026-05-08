@@ -67,9 +67,10 @@ function App() {
         </div>
 
         <p className="hero-tagline">
-          Underground sets &nbsp;//<br />
-          electronic transmissions <br />
-          from the north.
+          Underground sets<br />
+          <span className="tagline-sep">// </span>electronic<br />
+          transmissions from<br />
+          the north.
         </p>
 
         <div className="hero-content">
