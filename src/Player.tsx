@@ -1,12 +1,35 @@
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type MouseEvent, useEffect, useRef, useState } from 'react'
 
-const TRACK = {
-  title: 'Ayo Technology',
-  artist: '50 Cent ft. Justin Timberlake — KVICE & Jaison Silva Remix',
-  src: '/track.mp3',
+interface PlayerTrack {
+  id: string
+  title: string
+  subtitle: string
+  audioUrl: string
 }
 
-export default function Player() {
+interface PlayerProps {
+  track: PlayerTrack
+  isPlaying: boolean
+  onPlayingChange: (isPlaying: boolean) => void
+  onNext: () => void
+  onPrevious: () => void
+}
+
+const formatTime = (time: number) => {
+  if (!Number.isFinite(time)) return '0:00'
+
+  const minutes = Math.floor(time / 60)
+  const seconds = Math.floor(time % 60)
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+export default function Player({
+  track,
+  isPlaying,
+  onPlayingChange,
+  onNext,
+  onPrevious,
+}: PlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -16,10 +39,13 @@ export default function Player() {
   const beatRef = useRef(0)
   const energyRef = useRef(0)
   const dropRef = useRef(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
+  const [isMuted, setIsMuted] = useState(false)
   const [showHint, setShowHint] = useState(true)
   const [hasInteracted, setHasInteracted] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(0.7)
+  const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(false)
 
   const ensureAudioAnalyser = async () => {
     const audio = audioRef.current
@@ -99,38 +125,14 @@ export default function Player() {
     tick()
   }
 
-  // Autoplay no mount (mudo, pra navegador deixar)
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
-    audio.volume = 0.7
-    audio.muted = true
+    audio.volume = volume
+    audio.muted = isMuted
+  }, [volume, isMuted])
 
-    const tryPlay = async () => {
-      try {
-        await audio.play()
-        setIsPlaying(true)
-      } catch {
-        // Se falhar, espera primeira interação do usuário pra tentar de novo
-        const onFirst = async () => {
-          try {
-            await audio.play()
-            setIsPlaying(true)
-          } catch {}
-          window.removeEventListener('click', onFirst)
-          window.removeEventListener('touchstart', onFirst)
-          window.removeEventListener('keydown', onFirst)
-        }
-        window.addEventListener('click', onFirst, { once: true })
-        window.addEventListener('touchstart', onFirst, { once: true })
-        window.addEventListener('keydown', onFirst, { once: true })
-      }
-    }
-    tryPlay()
-  }, [])
-
-  // Esconde o hint depois que usuário ativa som ou após 8s
   useEffect(() => {
     if (hasInteracted) {
       setShowHint(false)
@@ -139,6 +141,52 @@ export default function Player() {
     const timer = setTimeout(() => setShowHint(false), 8000)
     return () => clearTimeout(timer)
   }, [hasInteracted])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    setCurrentTime(0)
+    setDuration(0)
+    audio.load()
+
+    if (isPlaying) {
+      audio.play().catch(() => onPlayingChange(false))
+    }
+  }, [track.id, track.audioUrl])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    const updateTime = () => setCurrentTime(audio.currentTime)
+    const updateDuration = () => setDuration(audio.duration || 0)
+
+    audio.addEventListener('timeupdate', updateTime)
+    audio.addEventListener('loadedmetadata', updateDuration)
+    audio.addEventListener('durationchange', updateDuration)
+    audio.addEventListener('ended', onNext)
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime)
+      audio.removeEventListener('loadedmetadata', updateDuration)
+      audio.removeEventListener('durationchange', updateDuration)
+      audio.removeEventListener('ended', onNext)
+    }
+  }, [onNext, track.id])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    if (isPlaying && audio.paused) {
+      audio.play().catch(() => onPlayingChange(false))
+    }
+
+    if (!isPlaying && !audio.paused) {
+      audio.pause()
+    }
+  }, [isPlaying, onPlayingChange])
 
   useEffect(() => {
     if (isPlaying && !isMuted) {
@@ -157,67 +205,166 @@ export default function Player() {
     if (audio.paused) {
       try {
         await audio.play()
-        setIsPlaying(true)
+        onPlayingChange(true)
       } catch {}
     } else {
       audio.pause()
-      setIsPlaying(false)
+      onPlayingChange(false)
     }
   }
 
-  const toggleMute = (e: React.MouseEvent) => {
+  const toggleMute = (e: MouseEvent) => {
     e.stopPropagation()
     const audio = audioRef.current
     if (!audio) return
     setHasInteracted(true)
     audio.muted = !audio.muted
     setIsMuted(audio.muted)
-    // Se o som tava mudo e ele clicou, garante que está tocando
-    if (!audio.muted && audio.paused) {
-      audio.play().then(() => setIsPlaying(true)).catch(() => {})
-    }
+  }
+
+  const seekTo = (value: string) => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    const nextTime = Number(value)
+    audio.currentTime = nextTime
+    setCurrentTime(nextTime)
+  }
+
+  const changeVolume = (value: string) => {
+    const audio = audioRef.current
+    const nextVolume = Number(value)
+
+    setVolume(nextVolume)
+
+    if (!audio) return
+
+    audio.volume = nextVolume
+    audio.muted = nextVolume === 0
+    setIsMuted(audio.muted)
+    setHasInteracted(true)
   }
 
   return (
-    <div className={`player ${isPlaying && !isMuted ? 'is-playing' : ''}`}>
-      <audio ref={audioRef} src={TRACK.src} loop preload="auto" />
+    <>
+    <div className={`player ${isPlaying && !isMuted ? 'is-playing' : ''} ${isPlayerCollapsed ? 'is-collapsed' : ''}`}>
+      <audio ref={audioRef} src={track.audioUrl} preload="auto" />
 
-      <button
-        className={`player-btn ${isPlaying ? 'playing' : ''}`}
-        onClick={togglePlay}
-        aria-label={isPlaying ? 'Pausar' : 'Tocar'}
-      >
-        {isPlaying ? (
-          <svg viewBox="0 0 14 14"><rect x="2" y="1" width="3" height="12" /><rect x="9" y="1" width="3" height="12" /></svg>
-        ) : (
-          <svg viewBox="0 0 14 14"><polygon points="2,1 13,7 2,13" /></svg>
-        )}
-      </button>
-
-      <div className="player-info">
-        <div className="player-title">{TRACK.title}</div>
-        <div className="player-artist">{TRACK.artist}</div>
+      <div className="player-track">
+        <div className="player-title-eq" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <div className="player-info">
+          <div className="player-title">{track.title}</div>
+          <div className="player-artist">{track.subtitle}</div>
+        </div>
       </div>
 
-      <div className="player-eq" aria-hidden="true">
-        <span></span><span></span><span></span><span></span>
+      <div className="player-center">
+        <div className="player-controls">
+          <button
+            className="player-skip"
+            onClick={onPrevious}
+            aria-label="Música anterior"
+            type="button"
+          >
+            <svg viewBox="0 0 18 18"><path d="M4 3 H6 V15 H4 Z M7 9 L15 3.8 V14.2 Z" /></svg>
+          </button>
+
+          <button
+            className={`player-btn ${isPlaying ? 'playing' : ''}`}
+            onClick={togglePlay}
+            aria-label={isPlaying ? 'Pausar' : 'Tocar'}
+            type="button"
+          >
+            {isPlaying ? (
+              <svg viewBox="0 0 14 14"><rect x="2" y="1" width="3" height="12" /><rect x="9" y="1" width="3" height="12" /></svg>
+            ) : (
+              <svg viewBox="0 0 14 14"><polygon points="2,1 13,7 2,13" /></svg>
+            )}
+          </button>
+
+          <button
+            className="player-skip"
+            onClick={onNext}
+            aria-label="Próxima música"
+            type="button"
+          >
+            <svg viewBox="0 0 18 18"><path d="M3 3.8 L11 9 L3 14.2 Z M12 3 H14 V15 H12 Z" /></svg>
+          </button>
+        </div>
+
+        <div className="player-progress-wrap">
+          <span className="player-time">{formatTime(currentTime)}</span>
+          <input
+            className="player-progress"
+            type="range"
+            min="0"
+            max={duration || 0}
+            step="0.1"
+            value={Math.min(currentTime, duration || 0)}
+            onChange={(event) => seekTo(event.target.value)}
+            aria-label="Progresso da música"
+            style={{ '--progress': `${duration ? (currentTime / duration) * 100 : 0}%` } as CSSProperties}
+          />
+          <span className="player-time">{formatTime(duration)}</span>
+        </div>
       </div>
 
-      <button
-        className="player-mute"
-        onClick={toggleMute}
-        aria-label={isMuted ? 'Ativar som' : 'Mutar'}
-      >
-        {isMuted ? (
-          <svg viewBox="0 0 14 14"><path d="M7 2 L4 5 H1 V9 H4 L7 12 V2 Z M9 5 L13 9 M13 5 L9 9" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" /></svg>
-        ) : (
-          <svg viewBox="0 0 14 14"><path d="M7 2 L4 5 H1 V9 H4 L7 12 V2 Z" /><path d="M10 4 Q12 7 10 10 M11.5 2.5 Q14 7 11.5 11.5" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" /></svg>
-        )}
-      </button>
+      <div className="player-side">
+        <div className="player-eq" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+
+        <button
+          className="player-mute"
+          onClick={toggleMute}
+          aria-label={isMuted ? 'Ativar som' : 'Mutar'}
+          type="button"
+        >
+          {isMuted ? (
+            <svg viewBox="0 0 14 14"><path d="M7 2 L4 5 H1 V9 H4 L7 12 V2 Z M9 5 L13 9 M13 5 L9 9" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" /></svg>
+          ) : (
+            <svg viewBox="0 0 14 14"><path d="M7 2 L4 5 H1 V9 H4 L7 12 V2 Z" /><path d="M10 4 Q12 7 10 10 M11.5 2.5 Q14 7 11.5 11.5" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" /></svg>
+          )}
+        </button>
+
+        <input
+          className="player-volume"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={isMuted ? 0 : volume}
+          onChange={(event) => changeVolume(event.target.value)}
+          aria-label="Volume"
+          style={{ '--volume': `${(isMuted ? 0 : volume) * 100}%` } as CSSProperties}
+        />
+
+        <button
+          className="player-collapse"
+          onClick={() => setIsPlayerCollapsed(true)}
+          aria-label="Minimizar player"
+          type="button"
+        >
+          <svg viewBox="0 0 16 16"><path d="M3.2 5.4 L8 10.2 L12.8 5.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      </div>
 
       {showHint && isMuted && (
         <div className="player-unmute-hint">► TAP PARA SOM</div>
       )}
     </div>
+
+    <button
+      className={`player-expand ${isPlayerCollapsed ? 'is-visible' : ''}`}
+      onClick={() => setIsPlayerCollapsed(false)}
+      aria-label="Expandir player"
+      type="button"
+    >
+      <svg viewBox="0 0 16 16"><path d="M3.2 10.6 L8 5.8 L12.8 10.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      PLAYER
+    </button>
+    </>
   )
 }

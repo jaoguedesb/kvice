@@ -24,7 +24,8 @@ interface TourEvent extends ApiEvent {
 interface Track {
   id: string
   title: string
-  meta: string
+  subtitle: string
+  audioUrl: string
 }
 
 const EVENTS_API_URL = 'https://script.google.com/macros/s/AKfycbyRRr5GekQkb0ZRLwQ1JPkBSDAHfah1lhAP1UzkkeZJINQkdaLkUuzwaP4del1PVz5kZg/exec'
@@ -60,12 +61,12 @@ const normalizeEvent = (event: ApiEvent): TourEvent => {
 }
 
 const tracks: Track[] = [
-  { id: '01', title: 'Subsolo', meta: 'Original Mix · 2025' },
-  { id: '02', title: 'Frequência Norte', meta: 'KVICE Edit · 2025' },
-  { id: '03', title: 'Cintilante', meta: 'with Lua Mar · 2024' },
-  { id: '04', title: 'Marés Baixas', meta: 'Original Mix · 2024' },
-  { id: '05', title: 'Vermelho 909', meta: 'KVICE Edit · 2024' },
-  { id: '06', title: 'Hora Azul', meta: 'Live Set Edit · 2023' },
+  { id: '01', title: 'Subsolo', subtitle: 'Original Mix · 2025', audioUrl: '/track.mp3' },
+  { id: '02', title: 'Frequência Norte', subtitle: 'KVICE Edit · 2025', audioUrl: '/track.mp3' },
+  { id: '03', title: 'Cintilante', subtitle: 'with Lua Mar · 2024', audioUrl: '/track.mp3' },
+  { id: '04', title: 'Marés Baixas', subtitle: 'Original Mix · 2024', audioUrl: '/track.mp3' },
+  { id: '05', title: 'Vermelho 909', subtitle: 'KVICE Edit · 2024', audioUrl: '/track.mp3' },
+  { id: '06', title: 'Hora Azul', subtitle: 'Live Set Edit · 2023', audioUrl: '/track.mp3' },
 ]
 
 const bioParagraphs = [
@@ -94,9 +95,12 @@ const renderAnimatedText = (text: string) =>
 
 function App() {
   const [year] = useState(new Date().getFullYear())
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [events, setEvents] = useState<TourEvent[]>([])
   const [isLoadingEvents, setIsLoadingEvents] = useState(true)
   const [eventsError, setEventsError] = useState(false)
+  const currentTrack = tracks[currentTrackIndex]
 
   useEffect(() => {
     const controller = new AbortController()
@@ -140,10 +144,34 @@ function App() {
     return () => controller.abort()
   }, [])
 
+  const playTrack = (track: Track) => {
+    const trackIndex = tracks.findIndex((item) => item.id === track.id)
+    if (trackIndex === -1) return
+
+    setCurrentTrackIndex(trackIndex)
+    setIsPlaying(true)
+  }
+
+  const playNextTrack = () => {
+    setCurrentTrackIndex((index) => (index + 1) % tracks.length)
+    setIsPlaying(true)
+  }
+
+  const playPreviousTrack = () => {
+    setCurrentTrackIndex((index) => (index - 1 + tracks.length) % tracks.length)
+    setIsPlaying(true)
+  }
+
   return (
     <>
       <Trail />
-      <Player />
+      <Player
+        track={currentTrack}
+        isPlaying={isPlaying}
+        onPlayingChange={setIsPlaying}
+        onNext={playNextTrack}
+        onPrevious={playPreviousTrack}
+      />
       <nav className="nav">
         <div className="nav-logo">
           KVICE<span className="dot"></span>
@@ -313,11 +341,15 @@ function App() {
             <div className="track" key={track.id}>
               <div className="track-num">/ {track.id}</div>
               <h3 className="track-title">{track.title}</h3>
-              <p className="track-meta">{track.meta}</p>
-              <a href="#" className="track-play">
+              <p className="track-meta">{track.subtitle}</p>
+              <button
+                className="track-play"
+                type="button"
+                onClick={() => playTrack(track)}
+              >
                 <span className="play-icon">▶</span>
                 Listen
-              </a>
+              </button>
             </div>
           ))}
         </div>
