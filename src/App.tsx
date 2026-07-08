@@ -1,13 +1,24 @@
-import { type CSSProperties, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 import Trail from './Trail'
 import Player from './Player'
 
-interface Show {
+type EventStatus = 'confirmed' | 'sold_out' | 'soon' | 'cancelled'
+
+interface ApiEvent {
   date: string
-  month: string
-  venue: string
+  title: string
   city: string
-  status: 'available' | 'sold' | 'soon'
+  country: string
+  venue: string
+  time: string
+  ticketUrl: string
+  status: EventStatus
+}
+
+interface TourEvent extends ApiEvent {
+  day: string
+  month: string
+  cityLabel: string
 }
 
 interface Track {
@@ -16,13 +27,37 @@ interface Track {
   meta: string
 }
 
-const shows: Show[] = [
-  { date: '15', month: 'JUN', venue: 'Warehouse 47', city: 'São Paulo / BR', status: 'sold' },
-  { date: '22', month: 'JUN', venue: 'Club Subsolo', city: 'Macapá / BR', status: 'available' },
-  { date: '06', month: 'JUL', venue: 'Festival Sonora', city: 'Rio de Janeiro / BR', status: 'available' },
-  { date: '20', month: 'JUL', venue: 'Galeria Underground', city: 'Brasília / BR', status: 'soon' },
-  { date: '03', month: 'AUG', venue: 'Open Air Sessions', city: 'Florianópolis / BR', status: 'available' },
-]
+const EVENTS_API_URL = 'https://script.google.com/macros/s/AKfycbyRRr5GekQkb0ZRLwQ1JPkBSDAHfah1lhAP1UzkkeZJINQkdaLkUuzwaP4del1PVz5kZg/exec'
+
+const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
+
+const parseEventDate = (date: string) => {
+  const [year, month, day] = date.split('T')[0].split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+const getToday = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
+const getStatusLabel = (status: EventStatus) => {
+  if (status === 'sold_out') return 'SOLD OUT'
+  if (status === 'soon') return 'EM BREVE'
+  return 'INGRESSOS'
+}
+
+const normalizeEvent = (event: ApiEvent): TourEvent => {
+  const date = parseEventDate(event.date)
+
+  return {
+    ...event,
+    day: String(date.getDate()).padStart(2, '0'),
+    month: monthFormatter.format(date).replace('.', '').toUpperCase(),
+    cityLabel: `${event.city} / ${event.country}${event.time ? ` — ${event.time}` : ''}`,
+  }
+}
 
 const tracks: Track[] = [
   { id: '01', title: 'Subsolo', meta: 'Original Mix · 2025' },
@@ -59,6 +94,51 @@ const renderAnimatedText = (text: string) =>
 
 function App() {
   const [year] = useState(new Date().getFullYear())
+  const [events, setEvents] = useState<TourEvent[]>([])
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true)
+  const [eventsError, setEventsError] = useState(false)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    const loadEvents = async () => {
+      try {
+        setIsLoadingEvents(true)
+        setEventsError(false)
+
+        const response = await fetch(EVENTS_API_URL, {
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error('Events request failed')
+        }
+
+        const data = (await response.json()) as ApiEvent[]
+        const today = getToday()
+        const visibleStatuses: EventStatus[] = ['confirmed', 'sold_out', 'soon']
+
+        const upcomingEvents = data
+          .filter((event) => visibleStatuses.includes(event.status))
+          .filter((event) => parseEventDate(event.date) >= today)
+          .sort((a, b) => parseEventDate(a.date).getTime() - parseEventDate(b.date).getTime())
+          .map(normalizeEvent)
+
+        setEvents(upcomingEvents)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setEventsError(true)
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingEvents(false)
+        }
+      }
+    }
+
+    loadEvents()
+
+    return () => controller.abort()
+  }, [])
 
   return (
     <>
@@ -177,20 +257,49 @@ function App() {
         <h2 className="section-title">Próximas<br />Datas</h2>
 
         <div className="show-list">
-          {shows.map((show, i) => (
-            <div className="show-row" key={i}>
+          {isLoadingEvents && (
+            <div className="show-row">
+              <div className="show-venue">Carregando datas...</div>
+            </div>
+          )}
+
+          {!isLoadingEvents && eventsError && (
+            <div className="show-row">
+              <div className="show-venue">Não foi possível carregar as próximas datas.</div>
+            </div>
+          )}
+
+          {!isLoadingEvents && !eventsError && events.length === 0 && (
+            <div className="show-row">
+              <div className="show-venue">Nenhuma data confirmada no momento.</div>
+            </div>
+          )}
+
+          {!isLoadingEvents && !eventsError && events.map((show) => {
+            const hasTicketUrl = show.ticketUrl.trim().length > 0
+            const ShowRowTag = hasTicketUrl ? 'a' : 'div'
+
+            return (
+            <ShowRowTag
+              className="show-row"
+              href={hasTicketUrl ? show.ticketUrl : undefined}
+              target={hasTicketUrl ? '_blank' : undefined}
+              rel={hasTicketUrl ? 'noreferrer' : undefined}
+              key={`${show.date}-${show.venue}`}
+            >
               <div className="show-date">
-                {show.date}
+                {show.day}
                 <small>{show.month}</small>
               </div>
               <div className="show-venue">{show.venue}</div>
-              <div className="show-city">{show.city}</div>
-              <div className={`show-status ${show.status === 'sold' ? 'sold' : ''}`}>
-                {show.status === 'sold' ? 'Sold Out' : show.status === 'soon' ? 'Em breve' : 'Ingressos'}
+              <div className="show-city">{show.cityLabel}</div>
+              <div className={`show-status ${show.status === 'sold_out' ? 'sold' : ''}`}>
+                {getStatusLabel(show.status)}
               </div>
               <div className="show-arrow">→</div>
-            </div>
-          ))}
+            </ShowRowTag>
+            )
+          })}
         </div>
       </section>
 
@@ -217,10 +326,15 @@ function App() {
       {/* BOOKING */}
       <section className="section booking" id="booking">
         <div className="booking-content">
-          <p className="booking-label">004 — Booking & Contato</p>
+          <p className="booking-label">004 — Contato</p>
           <h2 className="booking-title">Quer KVICE<br />no seu line-up?</h2>
-          <a href="mailto:booking@kvice.com" className="booking-email">
-            booking@kvice.com
+          <a
+            href="https://www.instagram.com/kvice_/"
+            className="booking-instagram booking-instagram-main"
+            target="_blank"
+            rel="noreferrer"
+          >
+            @kvice_
           </a>
         </div>
       </section>
