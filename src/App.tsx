@@ -71,9 +71,9 @@ const tracks: Track[] = [
 ]
 
 const bioParagraphs = [
-  'KVICE traduz a noite em movimento: graves densos, linhas hipnoticas e uma selecao que mistura house, techno e energia brasileira sem perder o misterio da pista.',
-  'Nascido no norte e guiado pela intuicao do dancefloor, cria sets com tensao, respiro e explosao, sempre buscando aquele ponto em que o publico para de assistir e comeca a fazer parte do som.',
-  'Cada apresentacao nasce ao vivo, lendo a sala, costurando texturas e abrindo espaco para momentos que parecem pequenos acidentes perfeitos.',
+  'Kvice é DJ e produtor musical, natural de Macapá (AP), reconhecido por sets marcados por groove, identidade e uma leitura de pista precisa. Formado pela Groove DJs em 2024, transita entre Minimal Deep Tech, Tech House, House, Melodic House & Techno e Indie Dance, construindo apresentações envolventes e de alta energia.',
+  'Ao longo de sua trajetória, já dividiu palco com Vintage Culture, Greggio, Bruno Be, Jord, Zuffo, Victor Lou, Bruna Strait, Zaark, Buja, Sterium e outros nomes da cena eletrônica nacional. Também marcou presença em eventos como Laje\'s Macapá, Réveillon da Fortaleza, Maly Club, Sky Experience e Expofeira.',
+  'Com identidade musical em constante evolução, Kvice vem se consolidando como um dos nomes em ascensão da região Norte e uma promessa da nova geração da música eletrônica brasileira.',
 ]
 
 const bioHighlights = [
