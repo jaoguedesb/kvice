@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useState } from 'react'
 import Trail from './Trail'
 import Player from './Player'
+import LoopVideo from './LoopVideo'
 
 type EventStatus = 'confirmed' | 'sold_out' | 'soon' | 'cancelled'
 
@@ -18,7 +19,7 @@ interface ApiEvent {
 interface TourEvent extends ApiEvent {
   day: string
   month: string
-  cityLabel: string
+  infoLabel: string
 }
 
 interface Track {
@@ -56,7 +57,7 @@ const normalizeEvent = (event: ApiEvent): TourEvent => {
     ...event,
     day: String(date.getDate()).padStart(2, '0'),
     month: monthFormatter.format(date).replace('.', '').toUpperCase(),
-    cityLabel: `${event.city} / ${event.country}${event.time ? ` — ${event.time}` : ''}`,
+    infoLabel: `${event.city} / ${event.country} — ${event.venue}${event.time ? ` — ${event.time}` : ''}`,
   }
 }
 
@@ -187,14 +188,9 @@ function App() {
       {/* HERO */}
       <section className="hero">
         <div className="hero-bg">
-          <video
+          <LoopVideo
             src="/unknown_2026.05.08-02.25_clip_1_clip_1.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            aria-label="KVICE live"
+            ariaLabel="KVICE live"
           />
         </div>
 
@@ -245,14 +241,7 @@ function App() {
           <div className="about-video-wrap">
             <p className="section-label">001 — Quem é</p>
             <div className="about-video">
-              <video
-                src="/dj-loop.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-              />
+              <LoopVideo src="/dj-loop.mp4" />
               <div className="about-video-overlay">
                 <span className="live-tag">
                   <span className="live-dot"></span> LIVE LOOP
@@ -319,8 +308,8 @@ function App() {
                 {show.day}
                 <small>{show.month}</small>
               </div>
-              <div className="show-venue">{show.venue}</div>
-              <div className="show-city">{show.cityLabel}</div>
+              <div className="show-venue">{show.title}</div>
+              <div className="show-city">{show.infoLabel}</div>
               <div className={`show-status ${show.status === 'sold_out' ? 'sold' : ''}`}>
                 {getStatusLabel(show.status)}
               </div>
