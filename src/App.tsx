@@ -507,13 +507,16 @@ function App() {
               </div>
 
               {selectedTrack.embedUrl ? (
-                <iframe
-                  className={`track-embed ${selectedTrack.platform}`}
-                  src={selectedTrack.embedUrl}
-                  title={`${selectedTrack.title} - ${getPlatformLabel(selectedTrack.platform)}`}
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                />
+                <div className="track-embed-wrap">
+                  <iframe
+                    className={`track-embed ${selectedTrack.platform}`}
+                    src={selectedTrack.embedUrl}
+                    title={`${selectedTrack.title} - ${getPlatformLabel(selectedTrack.platform)}`}
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                  />
+                  <p className="embed-volume-note">Volume controlado no player da plataforma.</p>
+                </div>
               ) : (
                 <a
                   className="platform-open"

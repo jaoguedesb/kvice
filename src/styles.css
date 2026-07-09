@@ -1400,6 +1400,10 @@ body::after {
   text-transform: uppercase;
 }
 
+.track-embed-wrap {
+  min-width: 0;
+}
+
 .track-embed {
   width: 100%;
   min-height: 180px;
@@ -1416,6 +1420,20 @@ body::after {
 .track-embed.youtube,
 .track-embed.bandcamp {
   aspect-ratio: 16 / 9;
+}
+
+.track-embed.soundcloud,
+.track-embed.bandcamp {
+  min-height: 280px;
+}
+
+.embed-volume-note {
+  margin-top: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gray-4);
 }
 
 .platform-open {
