@@ -1,7 +1,8 @@
 import { type CSSProperties, type MouseEvent, useEffect, useRef, useState } from 'react'
 
 interface PlayerTrack {
-  id: string
+  id?: string
+  order?: number
   title: string
   subtitle: string
   audioUrl: string
@@ -46,6 +47,7 @@ export default function Player({
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.7)
   const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(false)
+  const trackKey = track.id ?? String(track.order ?? track.title)
 
   const ensureAudioAnalyser = async () => {
     const audio = audioRef.current
@@ -153,7 +155,7 @@ export default function Player({
     if (isPlaying) {
       audio.play().catch(() => onPlayingChange(false))
     }
-  }, [track.id, track.audioUrl])
+  }, [trackKey, track.audioUrl])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -173,7 +175,7 @@ export default function Player({
       audio.removeEventListener('durationchange', updateDuration)
       audio.removeEventListener('ended', onNext)
     }
-  }, [onNext, track.id])
+  }, [onNext, trackKey])
 
   useEffect(() => {
     const audio = audioRef.current

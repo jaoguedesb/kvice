@@ -22,14 +22,37 @@ interface TourEvent extends ApiEvent {
   infoLabel: string
 }
 
-interface Track {
-  id: string
+type TrackPlatform = 'spotify' | 'soundcloud' | 'youtube' | 'bandcamp' | 'external'
+type TrackFilter = TrackPlatform | 'all'
+type TrackType = 'track' | 'set' | 'edit' | 'playlist'
+
+interface MusicTrack {
+  order: number
+  title: string
+  subtitle: string
+  platform: TrackPlatform
+  url: string
+  embedUrl?: string
+  active: boolean
+  type?: TrackType
+  audioUrl?: string
+}
+
+interface PlayerAudioTrack {
+  order?: number
   title: string
   subtitle: string
   audioUrl: string
 }
 
 const EVENTS_API_URL = 'https://script.google.com/macros/s/AKfycbyRRr5GekQkb0ZRLwQ1JPkBSDAHfah1lhAP1UzkkeZJINQkdaLkUuzwaP4del1PVz5kZg/exec'
+const MUSIC_API_URL = 'https://script.google.com/macros/s/AKfycbyRRr5GekQkb0ZRLwQ1JPkBSDAHfah1lhAP1UzkkeZJINQkdaLkUuzwaP4del1PVz5kZg/exec?sheet=musicas'
+
+const defaultTrack: PlayerAudioTrack = {
+  title: 'Ayo Technology',
+  subtitle: '50 Cent ft. Justin Timberlake — KVICE & Jaison Silva Remix',
+  audioUrl: '/track.mp3',
+}
 
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
 
@@ -61,14 +84,36 @@ const normalizeEvent = (event: ApiEvent): TourEvent => {
   }
 }
 
-const tracks: Track[] = [
-  { id: '01', title: 'Subsolo', subtitle: 'Original Mix · 2025', audioUrl: '/track.mp3' },
-  { id: '02', title: 'Frequência Norte', subtitle: 'KVICE Edit · 2025', audioUrl: '/track.mp3' },
-  { id: '03', title: 'Cintilante', subtitle: 'with Lua Mar · 2024', audioUrl: '/track.mp3' },
-  { id: '04', title: 'Marés Baixas', subtitle: 'Original Mix · 2024', audioUrl: '/track.mp3' },
-  { id: '05', title: 'Vermelho 909', subtitle: 'KVICE Edit · 2024', audioUrl: '/track.mp3' },
-  { id: '06', title: 'Hora Azul', subtitle: 'Live Set Edit · 2023', audioUrl: '/track.mp3' },
+const trackFilters: { value: TrackFilter; label: string }[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'spotify', label: 'Spotify' },
+  { value: 'soundcloud', label: 'SoundCloud' },
+  { value: 'youtube', label: 'YouTube' },
+  { value: 'bandcamp', label: 'Bandcamp' },
 ]
+
+const getPlatformLabel = (platform: TrackPlatform) => {
+  if (platform === 'spotify') return 'Spotify'
+  if (platform === 'soundcloud') return 'SoundCloud'
+  if (platform === 'youtube') return 'YouTube'
+  if (platform === 'bandcamp') return 'Bandcamp'
+  return 'Plataforma'
+}
+
+const getPlatformActionLabel = (platform: TrackPlatform) => {
+  if (platform === 'spotify') return 'Ouvir no Spotify'
+  if (platform === 'soundcloud') return 'Ouvir no SoundCloud'
+  if (platform === 'youtube') return 'Assistir no YouTube'
+  if (platform === 'bandcamp') return 'Ouvir no Bandcamp'
+  return 'Ouvir na plataforma'
+}
+
+const toPlayerAudioTrack = (track: MusicTrack & { audioUrl: string }): PlayerAudioTrack => ({
+  order: track.order,
+  title: track.title,
+  subtitle: track.subtitle,
+  audioUrl: track.audioUrl,
+})
 
 const bioParagraphs = [
   'Kvice é DJ e produtor musical, natural de Macapá (AP), reconhecido por sets marcados por groove, identidade e uma leitura de pista precisa. Formado pela Groove DJs em 2024, transita entre Minimal Deep Tech, Tech House, House, Melodic House & Techno e Indie Dance, construindo apresentações envolventes e de alta energia.',
@@ -96,12 +141,20 @@ const renderAnimatedText = (text: string) =>
 
 function App() {
   const [year] = useState(new Date().getFullYear())
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [selectedAudioTrack, setSelectedAudioTrack] = useState<PlayerAudioTrack | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [tracks, setTracks] = useState<MusicTrack[]>([])
+  const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null)
+  const [isLoadingTracks, setIsLoadingTracks] = useState(true)
+  const [tracksError, setTracksError] = useState(false)
+  const [activeFilter, setActiveFilter] = useState<TrackFilter>('all')
   const [events, setEvents] = useState<TourEvent[]>([])
   const [isLoadingEvents, setIsLoadingEvents] = useState(true)
   const [eventsError, setEventsError] = useState(false)
-  const currentTrack = tracks[currentTrackIndex]
+  const activeTracks = tracks.filter((track) => track.active)
+  const filteredTracks = activeTracks.filter((track) => activeFilter === 'all' || track.platform === activeFilter)
+  const playableTracks = activeTracks.filter((track): track is MusicTrack & { audioUrl: string } => Boolean(track.audioUrl))
+  const currentTrack = selectedAudioTrack ?? defaultTrack
 
   useEffect(() => {
     const controller = new AbortController()
@@ -145,21 +198,79 @@ function App() {
     return () => controller.abort()
   }, [])
 
-  const playTrack = (track: Track) => {
-    const trackIndex = tracks.findIndex((item) => item.id === track.id)
-    if (trackIndex === -1) return
+  useEffect(() => {
+    const controller = new AbortController()
 
-    setCurrentTrackIndex(trackIndex)
+    const loadTracks = async () => {
+      try {
+        setIsLoadingTracks(true)
+        setTracksError(false)
+
+        const response = await fetch(MUSIC_API_URL, {
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error('Music request failed')
+        }
+
+        const data = (await response.json()) as MusicTrack[]
+        const orderedTracks = data.sort((a, b) => a.order - b.order)
+
+        setTracks(orderedTracks)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setTracksError(true)
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingTracks(false)
+        }
+      }
+    }
+
+    loadTracks()
+
+    return () => controller.abort()
+  }, [])
+
+  const getTrackSibling = (direction: 1 | -1) => {
+    const playlist = playableTracks.length > 0 ? playableTracks : []
+    if (playlist.length === 0) return null
+
+    const currentIndex = playlist.findIndex((track) => track.order === selectedAudioTrack?.order)
+    const safeIndex = currentIndex === -1 ? 0 : currentIndex
+    const nextIndex = (safeIndex + direction + playlist.length) % playlist.length
+
+    return playlist[nextIndex]
+  }
+
+  const playTrack = (track: MusicTrack) => {
+    setSelectedTrack(track)
+
+    if (!track.audioUrl) {
+      setIsPlaying(false)
+      return
+    }
+
+    setSelectedAudioTrack(toPlayerAudioTrack({ ...track, audioUrl: track.audioUrl }))
     setIsPlaying(true)
   }
 
   const playNextTrack = () => {
-    setCurrentTrackIndex((index) => (index + 1) % tracks.length)
+    const nextTrack = getTrackSibling(1)
+    if (!nextTrack) return
+
+    setSelectedAudioTrack(toPlayerAudioTrack(nextTrack))
+    setSelectedTrack(nextTrack)
     setIsPlaying(true)
   }
 
   const playPreviousTrack = () => {
-    setCurrentTrackIndex((index) => (index - 1 + tracks.length) % tracks.length)
+    const previousTrack = getTrackSibling(-1)
+    if (!previousTrack) return
+
+    setSelectedAudioTrack(toPlayerAudioTrack(previousTrack))
+    setSelectedTrack(previousTrack)
     setIsPlaying(true)
   }
 
@@ -179,9 +290,9 @@ function App() {
         </div>
         <div className="nav-links">
           <a href="#about">Bio</a>
-          <a href="#shows">Tour</a>
-          <a href="#tracks">Sounds</a>
-          <a href="#booking">Booking</a>
+          <a href="#shows">Shows</a>
+          <a href="#tracks">Músicas</a>
+          <a href="#booking">Contato</a>
         </div>
       </nav>
 
@@ -212,7 +323,7 @@ function App() {
             </div>
             <div className="hero-meta-block">
               <strong>LIVE</strong>
-              Next show · 15.06
+              Next level · rock it
             </div>
           </div>
           <h1 className="hero-title">
@@ -270,7 +381,7 @@ function App() {
 
       {/* SHOWS */}
       <section className="section shows" id="shows">
-        <p className="section-label">002 — Tour</p>
+        <p className="section-label">002 — Shows</p>
         <h2 className="section-title">Próximas<br />Datas</h2>
 
         <div className="show-list">
@@ -322,13 +433,50 @@ function App() {
 
       {/* TRACKS */}
       <section className="section" id="tracks">
-        <p className="section-label">003 — Sounds</p>
+        <p className="section-label">003 — Músicas</p>
         <h2 className="section-title">Faixas<br />Selecionadas</h2>
 
+        <div className="track-filters" aria-label="Filtrar músicas por plataforma">
+          {trackFilters.map((filter) => (
+            <button
+              className={`track-filter ${activeFilter === filter.value ? 'active' : ''}`}
+              type="button"
+              onClick={() => setActiveFilter(filter.value)}
+              key={filter.value}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
         <div className="tracks">
-          {tracks.map((track) => (
-            <div className="track" key={track.id}>
-              <div className="track-num">/ {track.id}</div>
+          {isLoadingTracks && (
+            <div className="track track-message">
+              <h3 className="track-title">Carregando faixas...</h3>
+            </div>
+          )}
+
+          {!isLoadingTracks && tracksError && (
+            <div className="track track-message">
+              <h3 className="track-title">Não foi possível carregar as faixas.</h3>
+            </div>
+          )}
+
+          {!isLoadingTracks && !tracksError && activeTracks.length === 0 && (
+            <div className="track track-message">
+              <h3 className="track-title">Nenhuma faixa disponível no momento.</h3>
+            </div>
+          )}
+
+          {filteredTracks.map((track) => (
+            <div
+              className={`track ${selectedTrack?.order === track.order ? 'selected' : ''}`}
+              key={`${track.order}-${track.title}`}
+            >
+              <div className="track-num">/ {String(track.order).padStart(2, '0')}</div>
+              <div className={`track-platform ${track.platform}`}>
+                {getPlatformLabel(track.platform)}
+              </div>
               <h3 className="track-title">{track.title}</h3>
               <p className="track-meta">{track.subtitle}</p>
               <button
@@ -342,6 +490,43 @@ function App() {
             </div>
           ))}
         </div>
+
+        {selectedTrack && (
+          <div className="now-listening">
+            <div className="now-listening-header">
+              <p className="section-label">AGORA OUVINDO</p>
+              <div className={`track-platform ${selectedTrack.platform}`}>
+                {getPlatformLabel(selectedTrack.platform)}
+              </div>
+            </div>
+
+            <div className="now-listening-body">
+              <div>
+                <h3 className="now-listening-title">{selectedTrack.title}</h3>
+                <p className="now-listening-meta">{selectedTrack.subtitle}</p>
+              </div>
+
+              {selectedTrack.embedUrl ? (
+                <iframe
+                  className={`track-embed ${selectedTrack.platform}`}
+                  src={selectedTrack.embedUrl}
+                  title={`${selectedTrack.title} - ${getPlatformLabel(selectedTrack.platform)}`}
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                />
+              ) : (
+                <a
+                  className="platform-open"
+                  href={selectedTrack.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {getPlatformActionLabel(selectedTrack.platform)}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* BOOKING */}
@@ -369,23 +554,20 @@ function App() {
           <div className="footer-col">
             <h4>Navegar</h4>
             <a href="#about">Bio</a>
-            <a href="#shows">Tour</a>
-            <a href="#tracks">Sounds</a>
-            <a href="#booking">Booking</a>
+            <a href="#shows">Shows</a>
+            <a href="#tracks">Músicas</a>
+            <a href="#booking">Contato</a>
           </div>
           <div className="footer-col">
             <h4>Streaming</h4>
-            <a href="#">Spotify</a>
-            <a href="#">SoundCloud</a>
-            <a href="#">Apple Music</a>
-            <a href="#">YouTube</a>
+            <a href="https://open.spotify.com/intl-pt/artist/5TNOycf73vzlJe67BC1GoB?si=6O3XNTkuRBqziWkX9eE0nA" target="_blank" rel="noreferrer">Spotify</a>
+            <a href="https://soundcloud.com/kvicew" target="_blank" rel="noreferrer">SoundCloud</a>
+            <a href="https://music.apple.com/br/artist/kvice/1611941318" target="_blank" rel="noreferrer">Apple Music</a>
+            <a href="https://www.youtube.com/@Kvice" target="_blank" rel="noreferrer">YouTube</a>
           </div>
           <div className="footer-col">
             <h4>Social</h4>
-            <a href="#">Instagram</a>
-            <a href="#">TikTok</a>
-            <a href="#">Beatport</a>
-            <a href="#">Resident Advisor</a>
+            <a href="https://www.instagram.com/kvice_/" target="_blank" rel="noreferrer">Instagram</a>
           </div>
         </div>
         <div className="footer-bottom">

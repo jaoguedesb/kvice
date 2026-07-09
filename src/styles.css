@@ -81,7 +81,11 @@ body {
   border-top: 1px solid rgba(0, 255, 204, 0.35);
   font-family: var(--font-mono);
   color: var(--bone);
-  transition: border-color 0.3s, opacity 0.35s, transform 0.35s, visibility 0.35s;
+  transition:
+    border-color 0.3s,
+    opacity 0.42s ease,
+    transform 0.42s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0.42s;
   width: 100%;
   animation: playerSlideIn 0.8s 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   box-shadow: 0 -12px 38px rgba(0, 0, 0, 0.55);
@@ -91,7 +95,7 @@ body {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateY(100%);
+  transform: translateY(calc(100% + 1rem));
 }
 
 .player:hover {
@@ -201,7 +205,6 @@ body {
 
 .player-btn:hover { transform: scale(1.08); }
 .player-btn:active { transform: scale(0.95); }
-
 .player-btn svg {
   width: 14px;
   height: 14px;
@@ -516,6 +519,13 @@ body {
     bottom: 0.75rem;
     padding: 0.6rem 0.75rem;
     font-size: 0.58rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player,
+  .player-expand {
+    transition-duration: 0.01ms;
   }
 }
 
@@ -1200,6 +1210,34 @@ body::after {
 }
 
 /* ============ TRACKS ============ */
+.track-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 1400px;
+  margin: -2rem auto 2rem;
+}
+
+.track-filter {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gray-4);
+  border: 1px solid var(--gray-2);
+  border-radius: 999px;
+  padding: 0.65rem 0.9rem;
+  transition: border-color 0.25s, color 0.25s, background 0.25s;
+}
+
+.track-filter:hover,
+.track-filter.active {
+  color: var(--acid);
+  border-color: rgba(0, 255, 204, 0.65);
+  background: rgba(0, 255, 204, 0.06);
+}
+
 .tracks {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1220,6 +1258,15 @@ body::after {
   border-color: var(--acid);
 }
 
+.track.selected {
+  border-color: var(--acid);
+  box-shadow: 0 0 0 1px rgba(0, 255, 204, 0.12), 0 16px 48px rgba(0, 0, 0, 0.28);
+}
+
+.track-message {
+  grid-column: 1 / -1;
+}
+
 .track::before {
   content: '';
   position: absolute;
@@ -1232,6 +1279,7 @@ body::after {
 }
 
 .track:hover::before { width: 100%; }
+.track.selected::before { width: 100%; }
 
 .track-num {
   font-family: var(--font-mono);
@@ -1240,6 +1288,28 @@ body::after {
   letter-spacing: 0.25em;
   margin-bottom: 1.5rem;
 }
+
+.track-platform {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 1.1rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(244, 241, 234, 0.16);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gray-4);
+}
+
+.track-platform.spotify { color: #1ed760; border-color: rgba(30, 215, 96, 0.35); }
+.track-platform.soundcloud { color: #ff7a2f; border-color: rgba(255, 122, 47, 0.35); }
+.track-platform.youtube { color: #ff4b4b; border-color: rgba(255, 75, 75, 0.35); }
+.track-platform.bandcamp { color: #1da0c3; border-color: rgba(29, 160, 195, 0.35); }
+.track-platform.external { color: var(--acid); border-color: rgba(0, 255, 204, 0.35); }
 
 .track-title {
   font-family: var(--font-display);
@@ -1280,6 +1350,113 @@ body::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.now-listening {
+  max-width: 1400px;
+  margin: 3rem auto 0;
+  padding: 2rem;
+  border: 1px solid var(--gray-2);
+  background: rgba(10, 10, 10, 0.45);
+}
+
+.now-listening-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.now-listening-header .section-label {
+  margin-bottom: 0;
+}
+
+.now-listening-header .track-platform {
+  margin-bottom: 0;
+}
+
+.now-listening-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.55fr) minmax(280px, 1fr);
+  gap: 2rem;
+  align-items: center;
+}
+
+.now-listening-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 4.5rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.now-listening-meta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--gray-4);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.track-embed {
+  width: 100%;
+  min-height: 180px;
+  border: 0;
+  background: var(--gray-1);
+}
+
+.track-embed.spotify {
+  min-height: 152px;
+  border-radius: 12px;
+}
+
+.track-embed.soundcloud,
+.track-embed.youtube,
+.track-embed.bandcamp {
+  aspect-ratio: 16 / 9;
+}
+
+.platform-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 48px;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--acid);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--acid);
+  transition: background 0.25s, color 0.25s, transform 0.25s;
+}
+
+.platform-open:hover {
+  background: var(--acid);
+  color: var(--ink);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 800px) {
+  .track-filters {
+    margin-top: -1.5rem;
+  }
+  .now-listening {
+    padding: 1.25rem;
+  }
+  .now-listening-header,
+  .now-listening-body {
+    grid-template-columns: 1fr;
+  }
+  .now-listening-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 /* ============ BOOKING ============ */
