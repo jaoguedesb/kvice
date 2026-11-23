@@ -16,7 +16,15 @@ interface PlayerProps {
   onPrevious: () => void
 }
 
-const formatTime = (time: number) => {
+const BEAT_VARS = ['--beat', '--beat-low', '--beat-mid', '--drop'] as const
+
+interface BeatTarget {
+  el: HTMLElement
+  visible: boolean
+  last: string[]
+}
+
+const formatTime =(time: number) => {
   if (!Number.isFinite(time)) return '0:00'
 
   const minutes = Math.floor(time / 60)
@@ -40,6 +48,9 @@ export default function Player({
   const beatRef = useRef(0)
   const energyRef = useRef(0)
   const dropRef = useRef(0)
+  const beatActiveRef = useRef(false)
+  const beatTargetsRef = useRef<BeatTarget[]>([])
+  const beatObserverRef = useRef<IntersectionObserver | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [showHint, setShowHint] = useState(true)
   const [hasInteracted, setHasInteracted] = useState(false)
@@ -75,6 +86,7 @@ export default function Player({
   }
 
   const stopBeatAnimation = () => {
+    beatActiveRef.current = false
     if (frameRef.current) {
       cancelAnimationFrame(frameRef.current)
       frameRef.current = null
@@ -83,18 +95,39 @@ export default function Player({
     energyRef.current = 0
     dropRef.current = 0
     document.body.classList.remove('audio-reactive-active')
-    document.documentElement.style.setProperty('--beat', '0')
-    document.documentElement.style.setProperty('--beat-low', '0')
-    document.documentElement.style.setProperty('--beat-mid', '0')
-    document.documentElement.style.setProperty('--drop', '0')
+    beatObserverRef.current?.disconnect()
+    beatObserverRef.current = null
+    for (const { el } of beatTargetsRef.current) {
+      for (const name of BEAT_VARS) el.style.removeProperty(name)
+    }
+    beatTargetsRef.current = []
   }
 
   const startBeatAnimation = async () => {
+    beatActiveRef.current = true
     const analyser = await ensureAudioAnalyser()
     const data = dataRef.current
-    if (!analyser || !data || frameRef.current) return
+    // beatActiveRef: se pausou enquanto o AudioContext ainda estava retomando, não inicia o loop.
+    if (!beatActiveRef.current || !analyser || !data || frameRef.current) return
 
     document.body.classList.add('audio-reactive-active')
+
+    // As variáveis de beat são escritas só nos elementos marcados com data-beat
+    // (hero e nav), e só enquanto estão na tela. Escrever no :root forçava o
+    // navegador a recalcular o estilo da página inteira a cada frame.
+    const targets: BeatTarget[] = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-beat]'),
+    ).map((el) => ({ el, visible: true, last: ['', '', '', ''] }))
+    beatTargetsRef.current = targets
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const target = targets.find((item) => item.el === entry.target)
+        if (target) target.visible = entry.isIntersecting
+      }
+    })
+    targets.forEach((target) => observer.observe(target.el))
+    beatObserverRef.current = observer
 
     const tick = () => {
       analyser.getByteFrequencyData(data)
@@ -117,10 +150,22 @@ export default function Player({
       energyRef.current = energyRef.current * 0.9 + energy * 0.1
       dropRef.current = Math.max(dropRef.current * 0.82, Math.min(1, impact * 7.5))
 
-      document.documentElement.style.setProperty('--beat', beatRef.current.toFixed(3))
-      document.documentElement.style.setProperty('--beat-low', low.toFixed(3))
-      document.documentElement.style.setProperty('--beat-mid', mid.toFixed(3))
-      document.documentElement.style.setProperty('--drop', dropRef.current.toFixed(3))
+      const values = [
+        beatRef.current.toFixed(3),
+        low.toFixed(3),
+        mid.toFixed(3),
+        dropRef.current.toFixed(3),
+      ]
+
+      for (const target of targets) {
+        if (!target.visible) continue
+        for (let i = 0; i < BEAT_VARS.length; i += 1) {
+          if (target.last[i] === values[i]) continue
+          target.last[i] = values[i]
+          target.el.style.setProperty(BEAT_VARS[i], values[i])
+        }
+      }
+
       frameRef.current = requestAnimationFrame(tick)
     }
 
@@ -250,7 +295,8 @@ export default function Player({
   return (
     <>
     <div className={`player ${isPlaying && !isMuted ? 'is-playing' : ''} ${isPlayerCollapsed ? 'is-collapsed' : ''}`}>
-      <audio ref={audioRef} src={track.audioUrl} preload="auto" />
+      {/* metadata: busca só a duração; o áudio em si só baixa quando der play */}
+      <audio ref={audioRef} src={track.audioUrl} preload="metadata" />
 
       <div className="player-track">
         <div className="player-title-eq" aria-hidden="true">

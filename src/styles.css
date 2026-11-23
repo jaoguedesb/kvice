@@ -75,9 +75,9 @@ body {
   gap: 1.5rem;
   min-height: 86px;
   padding: 0.85rem 1.25rem;
-  background: rgba(10, 10, 10, 0.9);
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  /* Fundo opaco no lugar de 90% + backdrop-filter: a barra fica sobre o vídeo
+     do hero e o blur era refeito a cada frame de vídeo e de scroll. */
+  background: var(--ink);
   border-top: 1px solid rgba(0, 255, 204, 0.35);
   font-family: var(--font-mono);
   color: var(--bone);
@@ -561,8 +561,11 @@ body::after {
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.04;
-  mix-blend-mode: overlay;
+  opacity: 0.03;
+  /* Sem mix-blend-mode: um blend em tela cheia obrigava o navegador a recompor
+     a página inteira (vídeos incluídos) a cada frame. O grão agora é um tile de
+     200px renderizado uma vez e repetido. */
+  background-size: 200px 200px;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -647,7 +650,7 @@ body::after {
   display: flex;
   align-items: flex-end;
   isolation: isolate;
-  will-change: transform, filter;
+  will-change: transform;
 }
 
 .audio-reactive-active .hero {
@@ -658,7 +661,8 @@ body::after {
       0
     )
     rotate(calc(var(--drop) * -0.18deg));
-  filter: drop-shadow(0 0 calc(var(--drop) * 18px) rgba(0, 255, 204, 0.28));
+  /* O drop-shadow que havia aqui era aplicado no hero inteiro (vídeo incluso)
+     a cada frame e o brilho ficava escondido fora da tela/atrás do marquee. */
 }
 
 .audio-reactive-active .nav {
@@ -973,6 +977,13 @@ body::after {
   cursor: default;
 }
 
+/* Mantém cada palavra inteira na mesma linha (as letras são inline-block,
+   então sem isso a linha quebrava no meio da palavra). */
+.bio-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 .bio-char {
   display: inline-block;
   transform-origin: center bottom;
@@ -981,7 +992,7 @@ body::after {
     text-shadow 0.18s ease,
     transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   transition-delay: calc((var(--char-index) % 18) * 12ms);
-  will-change: transform;
+  /* will-change saiu daqui: em ~900 letras ele pedia uma camada de GPU por letra. */
 }
 
 .bio-line:hover .bio-char {

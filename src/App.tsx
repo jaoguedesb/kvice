@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useState } from 'react'
+import { type CSSProperties, memo, useEffect, useState } from 'react'
 import Trail from './Trail'
 import Player from './Player'
 import LoopVideo from './LoopVideo'
@@ -128,16 +128,48 @@ const bioHighlights = [
   { value: 'Noite', label: 'Energia principal' },
 ]
 
-const renderAnimatedText = (text: string) =>
-  text.split('').map((char, index) => (
-    <span
-      className="bio-char"
-      style={{ '--char-index': index } as CSSProperties}
-      key={`${char}-${index}`}
-    >
-      {char === ' ' ? '\u00a0' : char}
-    </span>
-  ))
+const renderAnimatedText = (text: string) => {
+  let charIndex = 0
+
+  // Agrupa as letras por palavra para a linha só quebrar nos espaços.
+  return text.split(' ').flatMap((word, wordIndex) => {
+    const chars = word.split('').map((char) => {
+      const index = charIndex
+      charIndex += 1
+
+      return (
+        <span
+          className="bio-char"
+          style={{ '--char-index': index } as CSSProperties}
+          key={index}
+        >
+          {char}
+        </span>
+      )
+    })
+
+    charIndex += 1 // o espaço também conta no atraso da animação
+
+    return [
+      wordIndex > 0 ? ' ' : null,
+      <span className="bio-word" key={`word-${wordIndex}`}>{chars}</span>,
+    ]
+  })
+}
+
+// A bio vira ~900 <span> (um por letra). Como o texto é fixo, o memo evita
+// recriar e comparar tudo isso a cada re-render do App (play/pause, filtros...).
+const BioText = memo(function BioText() {
+  return (
+    <>
+      {bioParagraphs.map((paragraph) => (
+        <p className="bio-line" key={paragraph}>
+          {renderAnimatedText(paragraph)}
+        </p>
+      ))}
+    </>
+  )
+})
 
 function App() {
   const [year] = useState(new Date().getFullYear())
@@ -284,7 +316,7 @@ function App() {
         onNext={playNextTrack}
         onPrevious={playPreviousTrack}
       />
-      <nav className="nav">
+      <nav className="nav" data-beat>
         <div className="nav-logo">
           KVICE<span className="dot"></span>
         </div>
@@ -297,10 +329,12 @@ function App() {
       </nav>
 
       {/* HERO */}
-      <section className="hero">
+      <section className="hero" data-beat>
         <div className="hero-bg">
           <LoopVideo
-            src="/unknown_2026.05.08-02.25_clip_1_clip_1.mp4"
+            src="/hero-loop.mp4"
+            mobileSrc="/hero-loop-mobile.mp4"
+            poster="/hero-poster.webp"
             ariaLabel="KVICE live"
           />
         </div>
@@ -352,7 +386,7 @@ function App() {
           <div className="about-video-wrap">
             <p className="section-label">001 — Quem é</p>
             <div className="about-video">
-              <LoopVideo src="/dj-loop.mp4" />
+              <LoopVideo src="/dj-loop.mp4" poster="/dj-poster.webp" />
               <div className="about-video-overlay">
                 <span className="live-tag">
                   <span className="live-dot"></span> LIVE LOOP
@@ -361,11 +395,7 @@ function App() {
             </div>
           </div>
           <div className="about-text">
-            {bioParagraphs.map((paragraph) => (
-              <p className="bio-line" key={paragraph}>
-                {renderAnimatedText(paragraph)}
-              </p>
-            ))}
+            <BioText />
 
             <div className="about-stats">
               {bioHighlights.map((item) => (

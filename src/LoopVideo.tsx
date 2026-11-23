@@ -2,28 +2,49 @@ import { memo, useEffect, useRef } from 'react'
 
 interface LoopVideoProps {
   src: string
+  /** Versão menor do vídeo, usada em telas até 768px. */
+  mobileSrc?: string
+  /** Imagem exibida enquanto o vídeo não carrega (primeiro frame). */
+  poster?: string
   ariaLabel?: string
 }
 
-function LoopVideo({ src, ariaLabel }: LoopVideoProps) {
+const MOBILE_QUERY = '(max-width: 768px)'
+
+function LoopVideo({ src, mobileSrc, poster, ariaLabel }: LoopVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const isVisibleRef = useRef(true)
 
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
 
-    video.autoplay = true
+    const resolvedSrc = mobileSrc && window.matchMedia(MOBILE_QUERY).matches ? mobileSrc : src
+    let isVisible = false
+    let hasSource = video.getAttribute('src') === resolvedSrc
+
     video.muted = true
     video.loop = true
     video.playsInline = true
-    video.preload = 'auto'
 
-    const shouldPlay = () => isVisibleRef.current && document.visibilityState === 'visible'
+    const shouldPlay = () => isVisible && document.visibilityState === 'visible'
 
     const safePlay = () => {
-      if (!shouldPlay()) return
+      if (!hasSource || !shouldPlay()) return
       video.play().catch(() => {})
+    }
+
+    // O arquivo só começa a baixar quando o vídeo chega perto da tela,
+    // e o vídeo pausa (para de decodificar) quando sai dela.
+    const sync = () => {
+      if (shouldPlay()) {
+        if (!hasSource) {
+          hasSource = true
+          video.src = resolvedSrc
+        }
+        safePlay()
+      } else if (!video.paused) {
+        video.pause()
+      }
     }
 
     const restartVideo = () => {
@@ -37,21 +58,12 @@ function LoopVideo({ src, ariaLabel }: LoopVideoProps) {
       safePlay()
     }
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        safePlay()
-      }
-    }
-
     const observer = new IntersectionObserver(
       ([entry]) => {
-        isVisibleRef.current = entry.isIntersecting
-
-        if (entry.isIntersecting) {
-          safePlay()
-        }
+        isVisible = entry.isIntersecting
+        sync()
       },
-      { threshold: 0.1 },
+      { rootMargin: '200px 0px' },
     )
 
     observer.observe(video)
@@ -61,9 +73,7 @@ function LoopVideo({ src, ariaLabel }: LoopVideoProps) {
     video.addEventListener('suspend', resumeIfPaused)
     video.addEventListener('ended', restartVideo)
     video.addEventListener('canplay', safePlay)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    safePlay()
+    document.addEventListener('visibilitychange', sync)
 
     return () => {
       observer.disconnect()
@@ -73,19 +83,18 @@ function LoopVideo({ src, ariaLabel }: LoopVideoProps) {
       video.removeEventListener('suspend', resumeIfPaused)
       video.removeEventListener('ended', restartVideo)
       video.removeEventListener('canplay', safePlay)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      document.removeEventListener('visibilitychange', sync)
     }
-  }, [])
+  }, [src, mobileSrc])
 
   return (
     <video
       ref={videoRef}
-      src={src}
-      autoPlay
       loop
       muted
       playsInline
-      preload="auto"
+      preload="none"
+      poster={poster}
       aria-label={ariaLabel}
       aria-hidden={ariaLabel ? undefined : true}
     />
